@@ -1,0 +1,114 @@
+import cv2
+import argparse
+import supervision as sv
+from ultralytics import YOLO
+import time
+
+start_time = time.time()
+
+
+def parse_arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="YOLOv8 live")
+    parser.add_argument(
+        "--webcam-resolution",
+         default=[1280, 720],
+         nargs=2, 
+         type=int
+         )
+    args = parser.parse_args()
+    return args
+
+def main():
+    # used to record the time when we processed last frame 
+    prev_frame_time = 0
+    
+    # used to record the time at which we processed current frame 
+    new_frame_time = 0
+    
+    args = parse_arguments()
+    frame_width,frame_height = args.webcam_resolution
+    video_sources = [
+        "/dev/video2",
+        "/dev/video1",
+        "/dev/video0",
+        0  # this is usually the default front camera
+    ]
+
+    cap = None
+    for source in video_sources:
+        try:
+            cap = cv2.VideoCapture(source)
+            if not cap.isOpened():
+                raise ValueError(f"Could not open video source: {source}")
+            else:
+                print(f"Successfully opened video source: {source}")
+                break  # Exit the loop if we've successfully opened a source
+        except Exception as e:
+            print(f"Error with video source {source}: {e}")
+            continue
+
+    if cap is None:
+        print("No video sources were opened.")
+    else:
+        # Proceed with your video capture logic
+        pass
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, frame_width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, frame_height)
+    
+    model = YOLO("yolov8n.pt")
+
+    while True:
+        ret, img= cap.read()
+        result = model(img, conf=0.3)[0]
+        detections = sv.Detections.from_ultralytics(result)
+
+        labels = [
+            f"{model.model.names[class_id]}, {confidence:0.2f}"
+            for class_id,confidence
+            in zip(detections.class_id,detections.confidence)
+        ]
+
+        bounding_box_annotator = sv.BoundingBoxAnnotator()
+        label_annotator = sv.LabelAnnotator()
+
+        annotated_image = bounding_box_annotator.annotate(
+            scene=img, detections=detections)
+        annotated_image = label_annotator.annotate(
+            scene=img, detections=detections, labels=labels)
+
+
+
+        # Our operations on the frame come here 
+        gray = img 
+    
+        # resizing the frame size according to our need 
+        gray = cv2.resize(gray, (500, 300)) 
+    
+        # font which we will be using to display FPS 
+        font = cv2.FONT_HERSHEY_SIMPLEX 
+        # Calculate and display FPS
+
+        new_frame_time = time.time() 
+        # Calculating the fps 
+    
+        # fps will be number of frame processed in given time frame 
+        # since their will be most of time error of 0.001 second 
+        # we will be subtracting it to get more accurate result 
+        fps = 1/(new_frame_time-prev_frame_time) 
+        prev_frame_time = new_frame_time 
+    
+        # converting the fps into integer 
+        fps = int(fps) 
+    
+        cv2.putText(annotated_image, f"FPS: {fps:.2f}", (10, 30), 
+            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+
+        cv2.imshow('Webcam', annotated_image)
+        # print(img.shape)
+        if cv2.waitKey(1) == ord('q'):
+            break
+
+if __name__=="__main__":
+    main()

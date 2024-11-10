@@ -11,7 +11,7 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="YOLOv8 live")
     parser.add_argument(
         "--webcam-resolution",
-         default=[1280, 720],
+         default=[640, 640],
          nargs=2, 
          type=int
          )
@@ -60,7 +60,7 @@ def main():
 
     while True:
         ret, img= cap.read()
-        result = model(img, conf=0.3)[0]
+        result = model.predict(img, conf=0.45)[0]
         detections = sv.Detections.from_ultralytics(result)
 
         labels = [
@@ -69,46 +69,29 @@ def main():
             in zip(detections.class_id,detections.confidence)
         ]
 
-        bounding_box_annotator = sv.BoundingBoxAnnotator()
+        bounding_box_annotator = sv.BoxAnnotator()
         label_annotator = sv.LabelAnnotator()
-
+        
         annotated_image = bounding_box_annotator.annotate(
             scene=img, detections=detections)
         annotated_image = label_annotator.annotate(
             scene=img, detections=detections, labels=labels)
 
-
-
-        # Our operations on the frame come here 
-        gray = img 
-    
-        # resizing the frame size according to our need 
-        gray = cv2.resize(gray, (500, 300)) 
-    
         # font which we will be using to display FPS 
         font = cv2.FONT_HERSHEY_SIMPLEX 
         # Calculate and display FPS
-
         new_frame_time = time.time() 
         # Calculating the fps 
-    
-        # fps will be number of frame processed in given time frame 
-        # since their will be most of time error of 0.001 second 
-        # we will be subtracting it to get more accurate result 
         fps = 1/(new_frame_time-prev_frame_time) 
         prev_frame_time = new_frame_time 
     
         # converting the fps into integer 
         fps = int(fps) 
-    
         cv2.putText(annotated_image, f"FPS: {fps:.2f}", (10, 30), 
-            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-
+            font, 1, (0, 255, 0), 2)
 
         cv2.imshow('Webcam', annotated_image)
-        # print(img.shape)
         if cv2.waitKey(1) == ord('q'):
             break
-
 if __name__=="__main__":
     main()

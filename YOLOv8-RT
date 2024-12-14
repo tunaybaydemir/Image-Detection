@@ -58,6 +58,16 @@ def main():
     
     model = YOLO("yolov8n.pt")
 
+model = ... # load model
+
+
+## Modify class names
+#model.names = ['class1', 'class2', #'class3']
+
+## Save the modified model
+#model.save('path/to/save/model.pt')
+
+
     while True:
         ret, img= cap.read()
         result = model.predict(img, conf=0.45)[0]
